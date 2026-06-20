@@ -1,17 +1,21 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
 from PIL import Image
 import os
-import gdown
+import tensorflow as tf
 
-if not os.path.exists("dog_cat_classifier.h5"):
-    url = "https://drive.google.com/uc?export=download&id=1KIwXQPv9G4lNPmtd2y2ktSqWjyBxdids"
-    gdown.download(url, "dog_cat_classifier.h5", quiet=False)
-# Load model
 
-model = tf.keras.models.load_model("dog_cat_classifier.h5")
+# Load TFLite model
+interpreter = tf.lite.Interpreter(
+    model_path="dog_cat_classifier.tflite"
+)
 
+interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+# Streamlit UI
 st.set_page_config(
     page_title="Dog vs Cat Classifier",
     page_icon="🐶"
@@ -36,12 +40,21 @@ if uploaded_file is not None:
 
     # Preprocessing
     img = image.resize((256, 256))
-    img = np.array(img)
+    img = np.array(img, dtype=np.float32)
     img = img / 255.0
     img = np.expand_dims(img, axis=0)
 
     with st.spinner("Analyzing image..."):
-        prediction = model.predict(img, verbose=0)
+        interpreter.set_tensor(
+            input_details[0]['index'],
+            img
+        )
+
+        interpreter.invoke()
+
+        prediction = interpreter.get_tensor(
+            output_details[0]['index']
+        )
 
     confidence = float(prediction[0][0])
 
